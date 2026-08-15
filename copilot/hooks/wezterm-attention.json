@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "powershell": "& \"$HOME\\.copilot\\hooks\\wezterm-attention.ps1\" clear",
+        "timeoutSec": 5
+      }
+    ],
+    "userPromptSubmitted": [
+      {
+        "type": "command",
+        "powershell": "& \"$HOME\\.copilot\\hooks\\wezterm-attention.ps1\" clear",
+        "timeoutSec": 5
+      }
+    ],
+    "preToolUse": [
+      {
+        "type": "command",
+        "powershell": "& \"$HOME\\.copilot\\hooks\\wezterm-attention.ps1\" work",
+        "timeoutSec": 5
+      },
+      {
+        "type": "command",
+        "matcher": "ask_user",
+        "powershell": "& \"$HOME\\.copilot\\hooks\\wezterm-attention.ps1\" notify",
+        "timeoutSec": 5
+      }
+    ],
+    "postToolUse": [
+      {
+        "type": "command",
+        "matcher": "ask_user",
+        "powershell": "& \"$HOME\\.copilot\\hooks\\wezterm-attention.ps1\" clear",
+        "timeoutSec": 5
+      }
+    ],
+    "agentStop": [
+      {
+        "type": "command",
+        "powershell": "& \"$HOME\\.copilot\\hooks\\wezterm-attention.ps1\" stop",
+        "timeoutSec": 5
+      }
+    ],
+    "sessionEnd": [
+      {
+        "type": "command",
+        "powershell": "& \"$HOME\\.copilot\\hooks\\wezterm-attention.ps1\" clear",
+        "timeoutSec": 5
+      }
+    ]
+  }
+}
