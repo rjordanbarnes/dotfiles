@@ -241,7 +241,7 @@ attention.apply_to_config(config, {
     review = false,
   },
   indicators = attention_indicators,
-  -- ponytail: review is unused here, so reuse it for acknowledged idle tabs.
+  -- Review is unused here, so reuse it for acknowledged idle tabs.
   auto_clear = {},
   stale_after_ms = {
     thinking = 30 * 60 * 1000,
@@ -320,7 +320,7 @@ wezterm.on('update-status', function(window, pane)
     last_orphan_sweep = now
   end
 
-  -- ponytail: force tab-title refresh; remove when WezTerm exposes tab invalidation.
+  -- Force tab-title refresh; remove when WezTerm exposes tab invalidation.
   tab_refresh = not tab_refresh
   window:set_right_status(utf8.char(tab_refresh and 0x200b or 0x200c))
 end)
