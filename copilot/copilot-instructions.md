@@ -17,6 +17,14 @@
 - Respect the extension's agent tab-group boundary. Open task tabs in that group;
   existing tabs must be shared into it. Never use another controller to reach
   unshared tabs.
+- Close tabs opened by you or your browser connection setup as soon as they are
+  no longer needed, including the initial "connection was established"
+  confirmation tab once the connection succeeds. Before finishing or handing
+  off, close remaining task/temporary tabs unless the user asked to keep them
+  open or they are still needed for ongoing work.
+- Use the extension's tab-management tools to close individual tabs. Never close
+  the whole browser, unrelated user tabs, tabs merely shared into your group,
+  or tabs belonging to another agent.
 - Inherit the authenticated machine-level `playwright-extension` configuration.
   Do not shadow it with repository or custom-agent MCP definitions. Keep browser
   tokens and other credentials in private local configuration, never in Git,
