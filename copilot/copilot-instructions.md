@@ -36,3 +36,16 @@
   normal purpose; do not repurpose them as interactive browser controllers.
   Ordinary HTTP/API requests and web search do not require browser automation,
   but must not be used to circumvent the browser-control policy.
+
+# Background helper processes
+
+- Across projects, persistent background helpers and scheduled scripts must not
+  open visible console or terminal windows. Do not rely solely on PowerShell's
+  `-WindowStyle Hidden`; Windows Terminal can still open a blank window.
+- Use `C:\code\dotfiles\windows\Get-BackgroundProcessHost.ps1` to build or locate
+  the reusable console-free host. Set the task action to the returned executable
+  and pass the actual console executable followed by its arguments. The host
+  prevents console creation, waits for completion, and preserves the exit code.
+- Keep helper diagnostics in log files. Preserve scheduled-task retries and
+  duplicate-instance protection. Do not change the default terminal, hide normal
+  interactive terminals, or make user-facing apps run invisibly.

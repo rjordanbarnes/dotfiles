@@ -21,6 +21,30 @@ Machine-specific MCP configuration and browser tokens are not tracked here.
 Hardlinks are used because Windows symbolic links require elevation here.
 Edit linked files in place; replacing them breaks the link.
 
+## Windowless background helpers
+
+`windows\Get-BackgroundProcessHost.ps1` builds a reusable console-free executable
+with Windows' existing .NET Framework compiler and returns its path. Source is
+tracked here; binaries are cached by source hash under
+`%LOCALAPPDATA%\Copilot\BackgroundProcess`, outside Git.
+
+Use the returned executable as a scheduled task's action. Its first argument is
+the full path to the real console executable, followed by that program's
+arguments. For example, pass `powershell.exe -NoProfile -NonInteractive -File`
+and the script path, quoting paths with spaces. Keep the task's working directory,
+logon identity, retry policy and duplicate-instance protection.
+
+Unlike `-WindowStyle Hidden`, this host prevents creation of a console window.
+It waits for the helper and returns its exit code. Scripts must write their own
+diagnostic logs; failures to start a program are logged beside the cached host.
+Normal interactive terminals and user-facing apps are not changed.
+
+Run the focused checks with Windows PowerShell:
+
+```powershell
+powershell.exe -NoProfile -Command "Invoke-Pester .\windows\BackgroundProcess.Tests.ps1 -EnableExit"
+```
+
 ## Docker maintenance
 
 `docker\Install-DockerMaintenance.ps1` registers a daily 03:00 local-time task.
