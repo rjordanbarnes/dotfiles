@@ -17,6 +17,22 @@
 - Respect the extension's agent tab-group boundary. Open task tabs in that group;
   existing tabs must be shared into it. Never use another controller to reach
   unshared tabs.
+- Manage your own group by convention, not through a session broker. Discover
+  `browser_tab_group` when available. At the start of an independent session,
+  inspect `current`, then name a fresh, session-specific group with `rename`.
+  An empty group just created for this connection is suitable; do not reuse a
+  group merely because its name contains "copilot".
+- Keep the group ID/name and which tabs you opened in your session notes or
+  checkpoint. Recheck `current` after reconnecting or losing that context; do
+  not treat old tab indices as stable identities.
+- If you notice another agent or unrelated tabs using your group, leave those
+  tabs alone. Use `new` at your discretion, then `current` or `rename` to create
+  and identify a fresh group. This leaves the old group/tabs untouched and keeps
+  the signed-in profile. Do not disconnect other clients to obtain a group.
+- `isolatedContext` is not a new tab group. Do not create another browser
+  profile, add per-session MCP definitions, or build a broker/ownership registry.
+  If group controls are unavailable, keep a known-safe group or report the
+  limitation rather than taking over another task's tabs.
 - Close tabs opened by you or your browser connection setup as soon as they are
   no longer needed, including the initial "connection was established"
   confirmation tab once the connection succeeds. Before finishing or handing
