@@ -1,14 +1,8 @@
 # dotfiles
 
-Windows agent browser policy and terminal-attention configuration used on this machine.
+Windows agent policies and maintenance utilities used on this machine.
 
-Tracked files are NTFS-hardlinked to:
-
-- `~\.wezterm.lua`
-- `~\.copilot\hooks\wezterm-attention.json`
-- `~\.copilot\hooks\wezterm-attention.ps1`
-
-`copilot\copilot-instructions.md` is also hardlinked to:
+`copilot\copilot-instructions.md` is NTFS-hardlinked to:
 
 - `~\.copilot\copilot-instructions.md` for all Copilot sessions
 - `~\.claude\CLAUDE.md` for Claude-compatible agents and VS Code's Local harness
