@@ -53,6 +53,19 @@
   Ordinary HTTP/API requests and web search do not require browser automation,
   but must not be used to circumvent the browser-control policy.
 
+# Cross-session coordination
+
+- Use Copilot CLI's local peer session tools when another active session is
+  using shared browser or desktop UI. Discover opted-in local sessions, send a
+  concise message naming the blocked resource and your tab group or task, then
+  continue independent work while waiting.
+- Never take over, close, or modify another session's tabs or app state. Wait
+  and retry after the peer signals completion; if no reply arrives, retry at a
+  reasonable interval rather than asking the user to arbitrate temporary
+  contention.
+- When releasing a shared resource, message waiting peers promptly. This is a
+  cooperative handoff mechanism, not a browser broker or ownership registry.
+
 # Background helper processes
 
 - Across projects, persistent background helpers and scheduled scripts must not
