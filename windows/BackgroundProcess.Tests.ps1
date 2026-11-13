@@ -163,6 +163,45 @@ exit 37
         $result.Stderr | Should Be 'console:0'
     }
 
+    It 'forwards an interactive response before parent stdin closes' {
+        $probePath = Join-Path $TestDrive 'interactive stdio probe.ps1'
+        @'
+$line = [Console]::In.ReadLine()
+[Console]::Out.WriteLine("ready:" + $line)
+[Console]::Out.Flush()
+$tail = [Console]::In.ReadToEnd()
+[Console]::Error.Write("tail:" + $tail)
+exit 39
+'@ | Set-Content -LiteralPath $probePath
+        $arguments = '"{0}" -NoProfile -NonInteractive -File "{1}"' -f
+            $script:powerShell, $probePath
+        $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $startInfo.FileName = $script:testHost
+        $startInfo.Arguments = "--proxy-stdio $arguments"
+        $startInfo.UseShellExecute = $false
+        $startInfo.CreateNoWindow = $true
+        $startInfo.RedirectStandardInput = $true
+        $startInfo.RedirectStandardOutput = $true
+        $startInfo.RedirectStandardError = $true
+        $process = [System.Diagnostics.Process]::Start($startInfo)
+        try {
+            $process.StandardInput.WriteLine('handshake')
+            $process.StandardInput.Flush()
+            $ready = $process.StandardOutput.ReadLineAsync()
+            $ready.Wait(5000) | Should Be $true
+            $ready.Result | Should Be 'ready:handshake'
+            $process.StandardInput.Write('after-ready')
+            $process.StandardInput.Close()
+            $stderr = $process.StandardError.ReadToEnd()
+            $process.WaitForExit()
+            $process.ExitCode | Should Be 39
+            $stderr | Should Be 'tail:after-ready'
+        }
+        finally {
+            $process.Dispose()
+        }
+    }
+
     It 'proxies concurrent payloads larger than the pipe buffer without deadlock' {
         $probePath = Join-Path $TestDrive 'large stdio probe.ps1'
         @'

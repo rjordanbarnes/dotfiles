@@ -67,27 +67,9 @@ internal static class BackgroundProcess
         Stream parentError = Console.OpenStandardError();
         Stream childInput = process.StandardInput.BaseStream;
 
-        Task input = parentInput.CopyToAsync(childInput);
-        input.ContinueWith(
-            delegate(Task completed)
-            {
-                if (completed.IsFaulted)
-                {
-                    var ignored = completed.Exception;
-                }
-
-                try
-                {
-                    childInput.Close();
-                }
-                catch (Exception)
-                {
-                }
-            },
-            TaskScheduler.Default);
-
-        Task output = process.StandardOutput.BaseStream.CopyToAsync(parentOutput);
-        Task error = process.StandardError.BaseStream.CopyToAsync(parentError);
+        Task input = StartPump(parentInput, childInput, true);
+        Task output = StartPump(process.StandardOutput.BaseStream, parentOutput, false);
+        Task error = StartPump(process.StandardError.BaseStream, parentError, false);
 
         process.WaitForExit();
         try
@@ -109,6 +91,44 @@ internal static class BackgroundProcess
         parentOutput.Flush();
         parentError.Flush();
         return process.ExitCode;
+    }
+
+    private static Task StartPump(Stream source, Stream destination, bool closeDestination)
+    {
+        return Task.Factory.StartNew(
+            delegate
+            {
+                var buffer = new byte[8192];
+                try
+                {
+                    int count;
+                    while ((count = source.Read(buffer, 0, buffer.Length)) > 0)
+                    {
+                        destination.Write(buffer, 0, count);
+                        destination.Flush();
+                    }
+                }
+                catch (IOException)
+                {
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+                finally
+                {
+                    if (closeDestination)
+                    {
+                        try
+                        {
+                            destination.Close();
+                        }
+                        catch (Exception)
+                        {
+                        }
+                    }
+                }
+            },
+            TaskCreationOptions.LongRunning);
     }
 
     private static string QuoteArgument(string value)
