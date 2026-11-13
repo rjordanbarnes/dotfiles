@@ -33,6 +33,11 @@ It waits for the helper and returns its exit code. Scripts must write their own
 diagnostic logs; failures to start a program are logged beside the cached host.
 Normal interactive terminals and user-facing apps are not changed.
 
+The opt-in first argument `--proxy-stdio` preserves private inherited
+stdin/stdout/stderr for a console-free child while still waiting for it and
+returning its exit code. The host proxies raw bytes concurrently and does not
+parse or log them. Omit the flag for the original hidden-helper behavior.
+
 Run the focused checks with Windows PowerShell:
 
 ```powershell
