@@ -53,18 +53,29 @@
   Ordinary HTTP/API requests and web search do not require browser automation,
   but must not be used to circumvent the browser-control policy.
 
-# Cross-session coordination
+# Cross-session resource coordination
 
-- Use Copilot CLI's local peer session tools when another active session is
-  using shared browser or desktop UI. Discover opted-in local sessions, send a
-  concise message naming the blocked resource and your tab group or task, then
-  continue independent work while waiting.
-- Never take over, close, or modify another session's tabs or app state. Wait
-  and retry after the peer signals completion; if no reply arrives, retry at a
-  reasonable interval rather than asking the user to arbitrate temporary
-  contention.
-- When releasing a shared resource, message waiting peers promptly. This is a
-  cooperative handoff mechanism, not a browser broker or ownership registry.
+- Authenticated `playwright-extension` browser work may run concurrently across
+  agents because each agent uses its own tab group. Do not send HC or peer lease
+  messages, wait, or ask permission merely because Edge or another browser tab
+  group is in use.
+- Keep using an agent-managed group: inspect/create/name it at independent
+  session start, remember its identity, leave unrelated groups and tabs alone,
+  and close only tabs opened by your task. Existing tabs must still be shared
+  into your group through the extension boundary; never take over another
+  group's tab.
+- Computer Use is a shared focus/input resource, including when it is the
+  browser fallback. Before using it, coordinate the exact app/window with
+  opted-in Copilot peer sessions, continue independent work while waiting, and
+  send a prompt handoff when releasing it. Do not ask the user to arbitrate
+  temporary contention.
+- Coordinate other resources only when they are genuinely shared, such as the
+  same explicit tab or a non-browser app. Never create a global Edge lock or
+  browser broker, and do not use HC orchestration messages for ordinary
+  Playwright browser availability.
+- Never take over, close, or modify another session's tabs or app state. If an
+  exact shared resource is busy, wait and retry after its owner signals
+  completion.
 
 # Background helper processes
 
