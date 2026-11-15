@@ -99,6 +99,11 @@
   documented `COPILOT_HOME` Windows user setting only after a verified, quiescent
   cutover. Preserve old C: references and canonical instruction links. Session
   history, authentication, and configuration are durable data, not caches.
+- In new sessions, if `%LOCALAPPDATA%\Copilot\ProfileMigration\status.json`
+  exists, read it once. For unfinished migration, retained backups, or missing
+  profile/history, read `C:\code\dotfiles\copilot\profile-recovery.md` before
+  changing profile data.
+  Recovery diagnostics and a fallback launcher remain on C: independently of E:.
 - Legacy C: worktree and cache paths may be compatibility junctions to E:.
   Preserve those junctions; do not replace them with C: directories or follow
   them when deleting obsolete local data.
