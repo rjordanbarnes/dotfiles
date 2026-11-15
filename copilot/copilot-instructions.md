@@ -95,6 +95,10 @@
 - Keep primary repositories under `C:\code`. Create linked Git worktrees under
   `E:\worktrees\<repository>\<task>`, not on C: or inside the primary checkout.
 - Keep npm's cache at `E:\caches\npm` and pip's cache at `E:\caches\pip`.
+- When relocating Copilot's whole profile, use `E:\copilot` and persist the
+  documented `COPILOT_HOME` Windows user setting only after a verified, quiescent
+  cutover. Preserve old C: references and canonical instruction links. Session
+  history, authentication, and configuration are durable data, not caches.
 - Legacy C: worktree and cache paths may be compatibility junctions to E:.
   Preserve those junctions; do not replace them with C: directories or follow
   them when deleting obsolete local data.
