@@ -89,3 +89,12 @@
 - Keep helper diagnostics in log files. Preserve scheduled-task retries and
   duplicate-instance protection. Do not change the default terminal, hide normal
   interactive terminals, or make user-facing apps run invisibly.
+
+# Development storage on this Windows workstation
+
+- Keep primary repositories under `C:\code`. Create linked Git worktrees under
+  `E:\worktrees\<repository>\<task>`, not on C: or inside the primary checkout.
+- Keep npm's cache at `E:\caches\npm` and pip's cache at `E:\caches\pip`.
+- Legacy C: worktree and cache paths may be compatibility junctions to E:.
+  Preserve those junctions; do not replace them with C: directories or follow
+  them when deleting obsolete local data.
