@@ -19,25 +19,33 @@
   unshared tabs.
 - Manage your own group by convention, not through a session broker. Discover
   `browser_tab_group` when available. At the start of an independent session,
-  inspect `current`, then name a fresh, session-specific group with `rename`.
-  An empty group just created for this connection is suitable; do not reuse a
-  group merely because its name contains "copilot".
+  inspect `current` and list its tabs. Reuse the initial group automatically
+  created for your connection and give that same group a session-specific name
+  with `rename`. Do not call `new` just to start a task or name the group. Do not
+  take over an unrelated group merely because its name contains "Playwright"
+  or "copilot".
+- Reuse your connection's initial Welcome / "connection was established" tab
+  as the first task tab. Once connected, use `browser_navigate` in that tab to
+  reach the first destination; do not create a replacement tab. Create additional
+  tabs only when the task needs them, within the same group.
 - Keep the group ID/name and which tabs you opened in your session notes or
   checkpoint. Recheck `current` after reconnecting or losing that context; do
   not treat old tab indices as stable identities.
 - If you notice another agent or unrelated tabs using your group, leave those
-  tabs alone. Use `new` at your discretion, then `current` or `rename` to create
-  and identify a fresh group. This leaves the old group/tabs untouched and keeps
-  the signed-in profile. Do not disconnect other clients to obtain a group.
+  tabs alone. Only for a genuine ownership conflict, use `new`, then `current`
+  or `rename` to create and identify a fresh group. Reuse that connection's
+  Welcome tab too. This leaves the old group/tabs untouched and keeps the
+  signed-in profile. Do not disconnect other clients to obtain a group.
 - `isolatedContext` is not a new tab group. Do not create another browser
   profile, add per-session MCP definitions, or build a broker/ownership registry.
   If group controls are unavailable, keep a known-safe group or report the
   limitation rather than taking over another task's tabs.
-- Close tabs opened by you or your browser connection setup as soon as they are
-  no longer needed, including the initial "connection was established"
-  confirmation tab once the connection succeeds. Before finishing or handing
-  off, close remaining task/temporary tabs unless the user asked to keep them
-  open or they are still needed for ongoing work.
+- Track the initial Welcome tab as task-owned, including after navigating it.
+  Close tabs opened by you or your browser connection setup as soon as they are
+  no longer needed. Before finishing or handing off, close remaining
+  task/temporary tabs, including any unused Welcome / connection-confirmation
+  page, unless the user asked to keep them open or they are still needed for
+  ongoing work.
 - Use the extension's tab-management tools to close individual tabs. Never close
   the whole browser, unrelated user tabs, tabs merely shared into your group,
   or tabs belonging to another agent.
@@ -59,11 +67,11 @@
   agents because each agent uses its own tab group. Do not send HC or peer lease
   messages, wait, or ask permission merely because Edge or another browser tab
   group is in use.
-- Keep using an agent-managed group: inspect/create/name it at independent
-  session start, remember its identity, leave unrelated groups and tabs alone,
-  and close only tabs opened by your task. Existing tabs must still be shared
-  into your group through the extension boundary; never take over another
-  group's tab.
+- Keep using your initial connection group: inspect/rename it at independent
+  session start, reuse its Welcome tab, remember its identity, leave unrelated
+  groups and tabs alone, and close only tabs opened by your task or connection
+  setup. Existing tabs must still be shared into your group through the
+  extension boundary; never take over another group's tab.
 - Computer Use is a shared focus/input resource, including when it is the
   browser fallback. Before using it, coordinate the exact app/window with
   opted-in Copilot peer sessions, continue independent work while waiting, and
