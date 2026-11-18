@@ -62,3 +62,25 @@ is in `~\.local\state\docker-maintenance\last-run.json`; previews use
 `last-preview.json`. These small reports are overwritten, not accumulated.
 Remove the scheduled task to disable automatic cleanup:
 `Unregister-ScheduledTask -TaskName Dotfiles-Docker-Maintenance -Confirm:$false`.
+
+## Ditzy persona broadcasts and musings
+
+`piston\ditzy-broadcast.mjs` exposes the `broadcast_message` MCP tool. It
+preserves the requested text, durably queues it for Kar tabs and Piston company
+personas, and returns live session IDs that the invoking agent must relay to
+with `send_session_message`.
+
+`piston\musings-watcher.mjs` polls only
+`C:\code\piston\user\musings`, ignores any `private` path, debounces ordinary
+changes for five minutes, and shortens the quiet period for time-sensitive
+updates. Normal updates may wait while company turns or work are active.
+
+Install the console-free one-minute watcher task with:
+
+```powershell
+.\piston\Install-MusingsWatcher.ps1
+```
+
+Diagnostics and state are under
+`%LOCALAPPDATA%\Ditzy\MusingsWatcher`. Remove the task with
+`.\piston\Uninstall-MusingsWatcher.ps1`.
