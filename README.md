@@ -66,14 +66,14 @@ Remove the scheduled task to disable automatic cleanup:
 ## Ditzy persona broadcasts and musings
 
 `piston\ditzy-broadcast.mjs` exposes the `broadcast_message` MCP tool. It
-preserves the requested text, durably queues it for Kar tabs and Piston company
-personas, and returns live session IDs that the invoking agent must relay to
-with `send_session_message`.
+preserves the requested text and posts it to Switchboard `#announcements`,
+where every Piston persona can read it now or after waking.
 
 `piston\musings-watcher.mjs` polls only
 `C:\code\piston\user\musings`, ignores any `private` path, debounces ordinary
 changes for five minutes, and shortens the quiet period for time-sensitive
-updates. Normal updates may wait while company turns or work are active.
+updates. Normal updates may wait while company turns or work are active, then
+post one durable Switchboard announcement.
 
 Install the console-free one-minute watcher task with:
 

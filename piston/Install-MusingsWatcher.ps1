@@ -31,7 +31,7 @@ $settings = New-ScheduledTaskSettingsSet `
 
 Register-ScheduledTask `
     -TaskName $TaskName `
-    -Description 'Watch public Piston musings, debounce edits, and ask Ditzy to broadcast updates without reading piston/user/private.' `
+    -Description 'Watch public Piston musings, debounce edits, and post updates to Switchboard without reading piston/user/private.' `
     -Action $action `
     -Trigger $trigger `
     -Principal $principal `

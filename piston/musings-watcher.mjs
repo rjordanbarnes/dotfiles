@@ -137,7 +137,7 @@ export async function runWatcher(options = {}) {
 	const companyDatabase =
 		options.companyDatabase ??
 		process.env.DITZY_COMPANY_DATABASE ??
-		'C:\\code\\piston-company\\.company\\company.db';
+		'C:\\code\\piston\\company\\.company\\company.db';
 	const broadcast = options.broadcast ?? broadcastMessage;
 	const current = await snapshotMusings(root);
 	const state = await readJson(statePath, null);
@@ -194,9 +194,6 @@ export async function runWatcher(options = {}) {
 
 	const message = composeBroadcast(state.pending.changes, state.pending.urgent);
 	const result = await broadcast(message, {
-		subject: state.pending.urgent
-			? 'Time-sensitive founder musing update'
-			: 'Founder musing update',
 		idempotencyKey: state.pending.id
 	});
 	state.lastBroadcast = {
@@ -204,15 +201,15 @@ export async function runWatcher(options = {}) {
 		id: state.pending.id,
 		urgent: state.pending.urgent,
 		files: state.pending.changes.map((change) => change.file),
-		broadcastId: result.broadcastId
+		broadcastId: result.broadcastId,
+		messageId: result.messageId
 	};
 	state.pending = null;
 	await writeJsonAtomic(statePath, state);
 	await logEvent(logPath, {
 		event: 'broadcast-sent',
 		broadcastId: result.broadcastId,
-		karRecipientCount: result.karRecipientCount,
-		companyRecipientCount: result.companyMessages.length
+		messageId: result.messageId
 	});
 	return { action: 'broadcast', message, result };
 }

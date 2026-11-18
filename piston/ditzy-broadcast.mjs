@@ -1,25 +1,17 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
-import net from 'node:net';
+import { readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
-import { DatabaseSync } from 'node:sqlite';
 
 const maxBroadcastCharacters = 32_000;
-const defaultKarState = path.join(
-	process.env.LOCALAPPDATA ?? path.join(os.homedir(), 'AppData', 'Local'),
-	'dev.local.kar'
-);
-const defaultCompanyRoot = 'C:\\code\\piston-company';
-const defaultStatePath = path.join(
-	process.env.LOCALAPPDATA ?? path.join(os.homedir(), 'AppData', 'Local'),
-	'Ditzy',
-	'Broadcast',
-	'state.json'
+const defaultCredentialFile = path.join(
+	process.env.APPDATA ?? path.join(os.homedir(), 'AppData', 'Roaming'),
+	'dev.piston.switchboard',
+	'agents',
+	'ditzy',
+	'credential.json'
 );
 
 export function validateBroadcastMessage(message) {
@@ -44,215 +36,80 @@ export function deterministicUuid(value) {
 	return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-async function readJson(file, fallback) {
-	try {
-		return JSON.parse(await readFile(file, 'utf8'));
-	} catch (error) {
-		if (error.code === 'ENOENT') return fallback;
-		throw error;
+async function loadCredential(credentialFile) {
+	const credential = JSON.parse(await readFile(credentialFile, 'utf8'));
+	if (
+		credential.principalId !== 'ditzy' ||
+		typeof credential.token !== 'string' ||
+		typeof credential.endpointFile !== 'string'
+	) {
+		throw new Error('Ditzy Switchboard credential is invalid.');
 	}
+	const endpoint = (await readFile(credential.endpointFile, 'utf8')).trim();
+	if (!endpoint.startsWith('http://127.0.0.1:')) {
+		throw new Error('Switchboard API endpoint is unavailable.');
+	}
+	return { ...credential, endpoint };
 }
 
-async function writeJsonAtomic(file, value) {
-	await mkdir(path.dirname(file), { recursive: true });
-	const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`;
-	await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
-	await rename(temporary, file);
-}
-
-function daemonRequest(socketName, auth, request) {
-	return new Promise((resolve, reject) => {
-		const socket = net.createConnection(`\\\\.\\pipe\\${socketName}`);
-		let response = '';
-		socket.setEncoding('utf8');
-		socket.once('connect', () => {
-			socket.write(`${JSON.stringify({ id: 1, auth, request })}\n`);
-		});
-		socket.on('data', (chunk) => (response += chunk));
-		socket.once('error', reject);
-		socket.once('end', () => {
-			try {
-				const message = JSON.parse(response.trim());
-				if (message.error) reject(new Error(message.error));
-				else resolve(message.result);
-			} catch (error) {
-				reject(error);
-			}
-		});
-	});
-}
-
-async function broadcastToKar(message, broadcastId, stateDirectory) {
-	const databasePath = path.join(stateDirectory, 'workspace.sqlite3');
-	if (!existsSync(databasePath)) throw new Error('Kar workspace state is unavailable.');
-	const database = new DatabaseSync(databasePath, { readOnly: true });
-	let source;
-	try {
-		source = database
-			.prepare(
-				`SELECT tabs.id, tabs.session_id, tabs.run_token
-				 FROM tabs
-				 LEFT JOIN tab_awakeness ON tab_awakeness.tab_id = tabs.id
-				 WHERE tabs.run_token IS NOT NULL AND tab_awakeness.tab_id IS NULL
-				 ORDER BY tabs.position
-				 LIMIT 1`
-			)
-			.get();
-	} finally {
-		database.close();
-	}
-	if (!source) throw new Error('No awake Kar runtime is available to send the broadcast.');
-	const auth = (await readFile(path.join(stateDirectory, 'daemon-token'), 'utf8')).trim();
-	if (!auth) throw new Error('Kar daemon token is empty.');
-	const socketName = `kar-${databasePath.replace(/[\\/:]/g, '-')}`;
-	const current = await daemonRequest(socketName, auth, { type: 'snapshot' });
-	const snapshot = current?.snapshot;
-	if (current?.type !== 'snapshot' || !snapshot?.epoch || !Number.isInteger(snapshot.revision)) {
-		throw new Error('Kar did not return a versioned workspace snapshot.');
-	}
-	const reply = await daemonRequest(socketName, auth, {
-		type: 'operate',
-		operation: {
-			operationId: broadcastId,
-			actor: 'ditzy-broadcast-mcp',
-			base: { epoch: snapshot.epoch, revision: snapshot.revision },
-			command: {
-				type: 'broadcast-message',
-				id: broadcastId,
-				sourceTab: source.id,
-				sourceToken: source.run_token,
-				message
-			}
+async function switchboardRequest(credential, route, options = {}) {
+	const response = await fetch(`${credential.endpoint}${route}`, {
+		...options,
+		headers: {
+			authorization: `Bearer ${credential.token}`,
+			...(options.body ? { 'content-type': 'application/json' } : {}),
+			...options.headers
 		}
 	});
-	if (reply?.type !== 'operation' || reply.outcome?.type !== 'broadcast-queued') {
-		throw new Error('Kar did not confirm the broadcast.');
+	const body = await response.text();
+	const value = body ? JSON.parse(body) : null;
+	if (!response.ok) {
+		throw new Error(value?.error || `Switchboard request failed with HTTP ${response.status}.`);
 	}
-	return {
-		broadcastId: reply.outcome.broadcastId,
-		recipientCount: reply.outcome.recipientCount,
-		excludedSourceSessionId: source.session_id
-	};
-}
-
-function companyRecipients(companyRoot) {
-	const configPath = path.join(companyRoot, 'company.config.json');
-	if (!existsSync(configPath)) return [];
-	const config = JSON.parse(readFileSync(configPath, 'utf8'));
-	return config.employees
-		.filter((employee) => employee.kind === 'agent')
-		.map((employee) => ({
-			employeeId: employee.id,
-			sessionId: employee.sessionId ?? null
-		}));
-}
-
-function queueCompanyMessage(companyRoot, recipient, subject, message) {
-	const environment = { ...process.env };
-	delete environment.COMPANY_EMPLOYEE_ID;
-	const result = spawnSync(
-		process.execPath,
-		[
-			path.join(companyRoot, 'bin', 'company.mjs'),
-			'send',
-			recipient.employeeId,
-			'--subject',
-			subject,
-			'--body',
-			message
-		],
-		{
-			cwd: companyRoot,
-			env: environment,
-			encoding: 'utf8',
-			windowsHide: true
-		}
-	);
-	if (result.status !== 0) {
-		throw new Error(
-			result.stderr.trim() || result.stdout.trim() || `Company send exited ${result.status}.`
-		);
-	}
-	const match = /Queued message (\d+) for/u.exec(result.stdout);
-	if (!match) throw new Error(`Could not parse company message result: ${result.stdout.trim()}`);
-	return Number(match[1]);
+	return value;
 }
 
 export async function broadcastMessage(message, options = {}) {
 	validateBroadcastMessage(message);
-	const karStateDirectory = options.karStateDirectory ?? process.env.DITZY_KAR_STATE_DIR ?? defaultKarState;
-	const companyRoot = options.companyRoot ?? process.env.DITZY_COMPANY_ROOT ?? defaultCompanyRoot;
-	const statePath = options.statePath ?? process.env.DITZY_BROADCAST_STATE ?? defaultStatePath;
-	const idempotencyKey = options.idempotencyKey ?? null;
-	const broadcastId = idempotencyKey ? deterministicUuid(idempotencyKey) : randomUUID();
-	const state = await readJson(statePath, { version: 1, broadcasts: {} });
-	const entry = state.broadcasts[broadcastId] ?? {
-		messageHash: createHash('sha256').update(message).digest('hex'),
-		companyMessages: {}
-	};
-	if (entry.messageHash !== createHash('sha256').update(message).digest('hex')) {
-		throw new Error('Broadcast idempotency key was reused for another message.');
-	}
-	if (entry.completed) return entry.result;
-
-	if (process.env.DITZY_BROADCAST_DRY_RUN === '1') {
-		return {
-			broadcastId,
-			karRecipientCount: 0,
-			liveSessionIds: companyRecipients(companyRoot)
-				.map((recipient) => recipient.sessionId)
-				.filter(Boolean),
-			companyMessages: [],
-			dryRun: true
-		};
-	}
-
-	if (!entry.kar) {
-		entry.kar = await broadcastToKar(message, broadcastId, karStateDirectory);
-		state.broadcasts[broadcastId] = entry;
-		await writeJsonAtomic(statePath, state);
-	}
-
-	const subject = options.subject ?? `Ditzy broadcast ${broadcastId.slice(0, 8)}`;
-	const recipients = companyRecipients(companyRoot);
-	for (const recipient of recipients) {
-		if (entry.companyMessages[recipient.employeeId]) continue;
-		entry.companyMessages[recipient.employeeId] = {
-			messageId: queueCompanyMessage(companyRoot, recipient, subject, message),
-			sessionId: recipient.sessionId
-		};
-		state.broadcasts[broadcastId] = entry;
-		await writeJsonAtomic(statePath, state);
-	}
-
-	const liveSessionIds = new Set(
-		recipients.map((recipient) => recipient.sessionId).filter(Boolean)
+	const credentialFile =
+		options.credentialFile ??
+		process.env.SWITCHBOARD_CREDENTIAL_FILE ??
+		defaultCredentialFile;
+	const broadcastId = options.idempotencyKey
+		? deterministicUuid(options.idempotencyKey)
+		: randomUUID();
+	const credential = await loadCredential(credentialFile);
+	const conversations = await switchboardRequest(credential, '/v1/conversations');
+	const announcements = conversations.find(
+		(conversation) => conversation.slug === 'announcements'
 	);
-	if (entry.kar.excludedSourceSessionId) {
-		liveSessionIds.add(entry.kar.excludedSourceSessionId);
+	if (!announcements) {
+		throw new Error('Switchboard #announcements is unavailable.');
 	}
-	const result = {
+	const sent = await switchboardRequest(
+		credential,
+		`/v1/conversations/${encodeURIComponent(announcements.id)}/messages`,
+		{
+			method: 'POST',
+			body: JSON.stringify({
+				operationId: broadcastId,
+				body: message
+			})
+		}
+	);
+	return {
 		broadcastId,
-		karRecipientCount: entry.kar.recipientCount,
-		excludedSourceSessionId: entry.kar.excludedSourceSessionId,
-		liveSessionIds: [...liveSessionIds],
-		companyMessages: Object.entries(entry.companyMessages).map(([employeeId, value]) => ({
-			employeeId,
-			...value
-		}))
+		conversationId: announcements.id,
+		messageId: sent.id,
+		sequence: sent.sequence
 	};
-	entry.completed = true;
-	entry.result = result;
-	state.broadcasts[broadcastId] = entry;
-	await writeJsonAtomic(statePath, state);
-	return result;
 }
 
 const tool = {
 	name: 'broadcast_message',
 	title: 'Broadcast a verbatim user message to every persona',
 	description:
-		'Use only when the user explicitly asks to broadcast. Pass message exactly with no added text. This durably queues Kar and piston-company delivery. After success, immediately send the same original message verbatim with send_session_message to every liveSessionId returned, including excludedSourceSessionId, so active standalone personas receive it now.',
+		'Use only when the user explicitly asks to broadcast. Pass message exactly with no added text. Switchboard persists it in #announcements for every Piston persona.',
 	inputSchema: {
 		type: 'object',
 		properties: {
@@ -260,10 +117,6 @@ const tool = {
 				type: 'string',
 				maxLength: maxBroadcastCharacters,
 				description: 'The exact verbatim message the user asked to broadcast.'
-			},
-			subject: {
-				type: 'string',
-				description: 'Optional short durable company-inbox subject.'
 			},
 			idempotencyKey: {
 				type: 'string',
@@ -297,9 +150,9 @@ async function runMcp() {
 						result: {
 							protocolVersion: request.params?.protocolVersion ?? '2025-11-25',
 							capabilities: { tools: {} },
-							serverInfo: { name: 'ditzy-broadcast', version: '1.0.0' },
+							serverInfo: { name: 'ditzy-broadcast', version: '2.0.0' },
 							instructions:
-								'Broadcast only explicit user messages verbatim. After calling the tool, relay the original message to every returned liveSessionId with send_session_message.'
+								'Broadcast only explicit user messages verbatim through Switchboard #announcements.'
 						}
 					});
 					break;
@@ -315,7 +168,6 @@ async function runMcp() {
 					}
 					const args = request.params.arguments ?? {};
 					const result = await broadcastMessage(args.message, {
-						subject: args.subject,
 						idempotencyKey: args.idempotencyKey
 					});
 					send({
@@ -325,7 +177,7 @@ async function runMcp() {
 							content: [
 								{
 									type: 'text',
-									text: `Broadcast queued for ${result.karRecipientCount} Kar recipients and ${result.companyMessages.length} company personas. Relay it verbatim to ${result.liveSessionIds.length} live session(s).`
+									text: `Broadcast persisted to Switchboard #announcements as message ${result.messageId}.`
 								}
 							],
 							structuredContent: result
@@ -359,10 +211,8 @@ async function runCli() {
 		throw new Error('CLI usage requires --message-file <path>.');
 	}
 	const message = await readFile(process.argv[fileIndex + 1], 'utf8');
-	const subjectIndex = process.argv.indexOf('--subject');
 	const idempotencyIndex = process.argv.indexOf('--idempotency-key');
 	const result = await broadcastMessage(message, {
-		subject: subjectIndex === -1 ? undefined : process.argv[subjectIndex + 1],
 		idempotencyKey:
 			idempotencyIndex === -1 ? undefined : process.argv[idempotencyIndex + 1]
 	});
